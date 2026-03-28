@@ -4,7 +4,7 @@ import json
 import time
 from google.api_core.exceptions import ResourceExhausted
 
-# ================= CONFIG =================
+# CONFIG
 apikey = st.secrets['API_KEY']
 genai.configure(api_key=apikey)
 
@@ -20,7 +20,7 @@ model = genai.GenerativeModel(
     generation_config=generation_config,
 )
 print("API CALL")
-# ================= SESSION =================
+# SESSION 
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
@@ -29,7 +29,7 @@ if "chat" not in st.session_state:
         {
             "role": "user",
             "parts": (
-                "You are a helpful AI.\n"
+                "Your name is Larry AI developed by COSENTIAL: COSMOS AI DIVISION.\n"
                 "If appropriate, recommend books based on the conversation.\n"
                 "Only return JSON when recommending a book in this format Return ONLY valid JSON. No extra text before or after. No explanations.:\n"
                 '{"type":"book","title":"...","author":"...","description":"...","image":"REAL_URL"}'
@@ -40,9 +40,9 @@ if "chat" not in st.session_state:
 if "processing" not in st.session_state:
     st.session_state.processing = False
 
-# ================= UI =================
-st.title("AI 2")
-st.caption("Smart Chat + Book Recommender")
+# UI
+st.title("Larry AI")
+st.caption("Powered by COSENTIAL: COSMOS AI DIVISION")
 
 def right_aligned(msg):
     st.markdown(
@@ -50,7 +50,7 @@ def right_aligned(msg):
         unsafe_allow_html=True
     )
 
-# ================= AI =================
+# AI
 def generate_response(prompt):
     try:
         time.sleep(0.5)  # small cooldown
@@ -74,7 +74,7 @@ def generate_response(prompt):
     except Exception as e:
         return {"type": "error", "content": str(e)}
 
-# ================= RENDER =================
+# RENDER
 def render_response(data):
     if data["type"] == "book":
         st.markdown("### 📚 Book Recommendation")
@@ -96,14 +96,14 @@ def render_response(data):
     else:
         st.chat_message("assistant").markdown(data.get("content", ""))
 
-# ================= HISTORY =================
+# HISTORY
 for msg in st.session_state.messages[-6:]:  
     if msg["role"] == "user":
         right_aligned(msg["content"])
     else:
         render_response(msg["data"])
 
-# ================= INPUT =================
+# INPUT
 prompt = st.chat_input("Ask something...")
 
 if prompt and not st.session_state.processing:

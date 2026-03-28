@@ -1,6 +1,7 @@
 import streamlit as st
 import google.generativeai as genai
 import json
+import time
 from google.api_core.exceptions import ResourceExhausted
 
 # ================= CONFIG =================
@@ -11,65 +12,64 @@ generation_config = {
     "temperature": 0.4,
     "top_p": 0.9,
     "top_k": 20,
-    "max_output_tokens": 300,
+    "max_output_tokens": 120,  # lower = cheaper
 }
 
 model = genai.GenerativeModel(
-    model_name="gemini-flash-lite-latest",
+    model_name="gemini-3.1-flash-lite-preview",
     generation_config=generation_config,
 )
-
+print("API CALL")
 # ================= SESSION =================
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
 if "chat" not in st.session_state:
-    st.session_state.chat = model.start_chat(history=[])
+    st.session_state.chat = model.start_chat(history=[
+        {
+            "role": "user",
+            "parts": (
+                "You are a helpful AI.\n"
+                "If appropriate, recommend books based on the conversation.\n"
+                "Only return JSON when recommending a book in this format Return ONLY valid JSON. No extra text before or after. No explanations.:\n"
+                '{"type":"book","title":"...","author":"...","description":"...","image":"REAL_URL"}'
+            )
+        }
+    ])
+
+if "processing" not in st.session_state:
+    st.session_state.processing = False
 
 # ================= UI =================
-st.title("Larry AI")
-st.text("Built By COSENTIAL: COSMOS AI DIVISION")
+st.title("AI 2")
+st.caption("Smart Chat + Book Recommender")
 
-def right_aligned_message(msg):
+def right_aligned(msg):
     st.markdown(
-        f'<div style="text-align: right; padding:10px;">{msg}</div>',
+        f'<div style="text-align:right;padding:8px;">{msg}</div>',
         unsafe_allow_html=True
     )
 
 # ================= AI =================
 def generate_response(prompt):
     try:
-        system_prompt = f"""
-Your name is Larry AI
+        time.sleep(0.5)  # small cooldown
 
-NORMAL:
-- Reply normally in plain text.
-
-SPECIAL CASE (book recommendation):
-- If user asks for a book, respond ONLY in JSON:
-{{
-  "type": "book",
-  "title": "...",
-  "author": "...",
-  "description": "...",
-  "image": "IMAGE_URL"
-}}
-
-User: {prompt}
-"""
-
-        response = st.session_state.chat.send_message(system_prompt)
+        response = st.session_state.chat.send_message(prompt)
         text = response.text.strip()
 
-        # Try parse JSON
+        # Try JSON parse (only if it's a book)
         try:
             data = json.loads(text)
-            return data
+            if isinstance(data, dict) and data.get("type") == "book":
+                return data
         except:
-            return {"type": "text", "content": text}
+            pass
+
+        return {"type": "text", "content": text}
 
     except ResourceExhausted:
-        return {"type": "error", "content": "⚠️ API quota exceeded."}
+        return {"type": "error", "content": "⚠️ Quota exceeded. Try later."}
 
     except Exception as e:
         return {"type": "error", "content": str(e)}
@@ -79,36 +79,41 @@ def render_response(data):
     if data["type"] == "book":
         st.markdown("### 📚 Book Recommendation")
 
-        left, right = st.columns(2)
+        left, right = st.columns([1, 1.2])
+
+        image_url = data.get("image", "")
+        if not isinstance(image_url, str) or not image_url.startswith("http"):
+            image_url = "https://via.placeholder.com/150?text=No+Image"
 
         with left:
-            st.markdown(f"**{data['title']}**")
-            # st.image(data["image"], use_container_width=True)
-            st.markdown(f"✍️ *{data['author']}*")
+            st.image(image_url, use_container_width=True)
 
         with right:
-            st.markdown("**About this Book**")
-            st.write(data["description"])
+            st.markdown(f"**{data.get('title','Unknown')}**")
+            st.markdown(f"✍️ *{data.get('author','Unknown')}*")
+            st.write(data.get("description", ""))
 
     else:
         st.chat_message("assistant").markdown(data.get("content", ""))
 
 # ================= HISTORY =================
-for msg in st.session_state.messages:
+for msg in st.session_state.messages[-6:]:  
     if msg["role"] == "user":
-        right_aligned_message(msg["parts"])
+        right_aligned(msg["content"])
     else:
         render_response(msg["data"])
 
 # ================= INPUT =================
-prompt = st.chat_input("Ask AI")
+prompt = st.chat_input("Ask something...")
 
-if prompt:
-    right_aligned_message(prompt)
+if prompt and not st.session_state.processing:
+    st.session_state.processing = True
+
+    right_aligned(prompt)
 
     st.session_state.messages.append({
         "role": "user",
-        "parts": prompt
+        "content": prompt
     })
 
     placeholder = st.chat_message("assistant").empty()
@@ -123,3 +128,5 @@ if prompt:
         "role": "assistant",
         "data": data
     })
+
+    st.session_state.processing = False

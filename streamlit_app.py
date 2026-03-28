@@ -5,7 +5,6 @@ from google.api_core.exceptions import ResourceExhausted
 
 # ================= CONFIG =================
 apikey = st.secrets['API_KEY']
-givenprompt = st.secrets['PROMPT']
 genai.configure(api_key=apikey)
 
 generation_config = {
@@ -40,7 +39,24 @@ def right_aligned_message(msg):
 # ================= AI =================
 def generate_response(prompt):
     try:
-        system_prompt = givenprompt + "USER: " + prompt
+        system_prompt = f"""
+Your name is Larry AI
+
+NORMAL:
+- Reply normally in plain text.
+
+SPECIAL CASE (book recommendation):
+- If user asks for a book, respond ONLY in JSON:
+{{
+  "type": "book",
+  "title": "...",
+  "author": "...",
+  "description": "...",
+  "image": "IMAGE_URL"
+}}
+
+User: {prompt}
+"""
 
         response = st.session_state.chat.send_message(system_prompt)
         text = response.text.strip()
